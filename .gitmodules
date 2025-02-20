@@ -1,0 +1,3 @@
+[submodule "QME"]
+	path = QME
+	url = https://github.com/AusClimateService/QME
