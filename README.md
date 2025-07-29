@@ -93,7 +93,11 @@ First, the necessary variables (listed in table below) are extracted for each of
 ```bash
 lquota | grep eg3
 ```
-
+**Progress**:
+- 🟢 Variables extracted for BARPA-R daily and hourly data (ssp126 and ssp370)
+- 🟢 Variables extracted for CCAM-v2203-SN daily data (ssp126 and ssp370)
+- 🟡 Variables extracted for CCAM-v2203-SN hourly data (ssp370)
+- 🔴 Variables extracted for CCAM-v2203-SN hourly data (ssp126)
 
 ---
 
@@ -137,7 +141,7 @@ for hour in range(24):
 ```
 Additive (`+`) adjustment is applied to temperature as values can be positive or negative and are on a linear scale, while all other variables are using are using multiplicative (`*`) adjustment. For hourly data, radiation (global and direct) falls to zero during night time. The adjustment factor of zero yields `nan`/`inf` values in the adjusted data:
 <img src="plots/radiation_timeseries.png" alt="Plot"/>
-These gaps are backfilled with reference data.
+These gaps are backfilled with reference data. In the same manner, finite scales like those of relative humidity (0-100%), atmospheric pressure (can't be negative), and cloud cover fraction (0-1) are clipped so they don't become unrealistic.
 For sense checking, diagnistics are ploted for daily and hourly output as part of the Jupyter script. This includes climatology, heatmap of adjustment factors and histogram. E.g. for daily BARPA-R-ACCESS-ESM1-5 ssp370 tasmax (top) and sfcWind (bottom) for Melbourne:
 <img src="plots/Melbourne_qdc_daily_tasmax_BARPA-R.png" alt="Plot"/>
 <img src="plots/Melbourne_qdc_daily_sfcWind_BARPA-R.png" alt="Plot"/>
@@ -153,27 +157,57 @@ Or for hourly (12 UTC) BARPA-R-ACCESS-ESM1-5 ssp370 tas for Mildura:
 - Run `step2_qdc_scaling.ipynb` on ARE for scaling/mapping extracted output data from step 1 to BARRA-R2.
 - Check produced diagnostic plots for feasibility. See example for Melbourne for BARPA-R_ACCESS-ESM1-5 ssp370 daily data: [View the PDF](plots/Melbourne_AUS-15_ACCESS-ESM1-5_ssp370_r6i1p1f1_BOM_BARPA-R_v1-r1_day_2050_QDC-BARRAR2_AdjFact_facetplot.pdf)
 
+**Progress**:
+- 🟢 QDC-scaling for BARPA-R daily and hourly data (ssp126 and ssp370)
+- 🟡 QDC-scaling for CCAM-v2203-SN daily data (ssp370) -> with issue mentioned above
+- 🔴 QDC-scaling for CCAM-v2203-SN daily (ssp126) and hourly data (ssp126 and ssp370)
+  
 ---
 
-## Step 3: Visualization and Output
+## Step 3: Compute missing variables and convert units (if necessary)
+Daily dry bulb and dewpoint temperature (minimum, mean and maximum), wind speed (mean and maximum) and radiation (global and direct) are used to determine the “typical” months from which the hourly weather files (TMY) are created. The hourly variables compile the synthetically created year for TMY and XMYs. The table below summarises the variables needed for Step 4, creating TMY and XMY files. While some variables derived from the model data only need to undergo simple unit conversion, a number of required variables are not provided by either BARRA-R2 or the projections data and need to be calculated after the QDC-scaling (Step 2), denoted in *italics*. The methods to calculate them are presented in the rightmost column.
 
-Describe how results are visualized and shared. Include screenshots or links if available.
+| **Variable**                | **Hourly** | **Daily** | **Unit NatHERS** | **Unit model output** | **Conversion/Calculation** |
+|-----------------------------|:----------:|:---------:|------------------|------------------------|-----------------------------|
+| (Mean) dry bulb temperature | ✅         | ✅        |        ˚C        |         K             |   `tas[C] = tas[K]-273.15`                       |
+| Max dry bulb temperature    |            | ✅        |         ˚C        |        K              |             as above      |
+| Min dry bulb temperature    |            | ✅        |       ˚C         |         K              |             as above         |
+| *Wet bulb temperature*      | ✅         |           |       ˚C         |          n/a           |Isobaric Tw using NEWT (Rogers and Warren, 2024)|
+| *Max dew point temperature* |            | ✅        |       ˚C         |          n/a           |Dew point function from the [atmos.thermo python package (Warren, 2024)](https://github.com/robwarrenwx/atmos/tree/main)                            |
+| *Min dew point temperature* |            | ✅        |       ˚C         |          n/a           |             "               |
+| *Mean dew point temperature*|            | ✅        |       ˚C         |          n/a           |             "               |
+| Absolute moisture content   | ✅         |           |         g/kg     |          kg/kg         | `huss[g/kg] = huss[kg/kg] * 1000` |
+| Atmospheric pressure        | ✅         |           |         kPa      |           Pa           |  `ps[kPa] = ps[Pa]/1000`     |
+| (Mean) wind speed           | ✅         | ✅        |         m/s      |        m/s             |             /                |
+| Max wind speed              |            | ✅        |         m/s         |     m/s             |             /               |
+| *Wind direction*            | ✅         |           |0-16, 0=calm,<br>1=NNE, 16=N         | n/a |`wind_dir_deg = np.degrees(np.arctan2(uas, vas)) % 360` `index = (((wind_dir_deg - 11.25) % 360) / 22.5').astype(int)`                  |
+| Global solar irradiance     | ✅         | ✅        |      W/m-2       |         W/m-2          |             /                |
+| Direct solar irradiance     | ✅         | ✅        |      W/m-2       |         W/m-2          |             /                |
+| *Diffuse solar irradiance*  | ✅         |           |      W/m-2       |         n/a            | `DHI(diffuse) = GHI(global) - DNI(direct)` |
 
 **Key tasks**:
-- Generate plots using `visualize_results.ipynb`
-- Export maps and charts to `/outputs/figures/`
-- Optional: run dashboard via Streamlit
+- Run `step3_calc_missing_vars.ipynb`
+- Produce some sample plots for sense checking
 
+**Progress**:
+- 🟡 Code almost finished
+- 🔴 Applied to BARPA-R ssp126 and ssp370
+- 🔴 Applied to CCAM-v2203-SN ssp126 and ssp370
 ---
 
-## Step 4: Review and Validation
+## Step 4: Create TMY and XMY files
+A Typical Meteorological Year (TMY) file is a synthetic weather dataset representing average climatic conditions at a location by selecting 12 “typical” months from different years that best match long-term averages. TMY preserves realistic daily and hourly variability while excluding extreme events, enabling consistent building performance assessments.
+Here, both TMY and Extreme Meteorological Year (XMY) files are generated using established methods (Marion & Urban, 1995; Wilcox & Marion, 2008; Liley, 2024). XMY files capture severe heatwave conditions by selecting months with the longest, most intense, and most severe heatwaves, important for evaluating building resilience (Ren, 2024).
+The Finkelstein–Schäfer (FS) statistic is key to this method, measuring differences between a month’s cumulative distribution function (CDF) and the multi-year CDF to identify the most representative months for TMY. For XMY, the FS method is adapted to select months based on heatwave intensity and duration.
 
-Explain how results are validated or interpreted, and any peer review or stakeholder feedback mechanisms.
 
 **Key tasks**:
-- Run validation checks in `validate_outputs.py`
-- Compare outputs to baseline datasets
-- Document insights and uncertainties
+- Populate `step4_tmy_xmy.ipynb` with code to produce XMY and TMY output files.
+
+**Progress**:
+- 🔴 Code written
+- 🔴 TMY/XMY files for BARPA-R ssp126 and ssp370
+- 🔴 TMY/XMY files for CCAM-v2203-SN ssp126 and ssp370
 
 ---
 
@@ -185,4 +219,4 @@ Explain how results are validated or interpreted, and any peer review or stakeho
 
 ## Contact
 
-For questions or collaboration requests, please contact [Your Name](mailto:your.email@example.com).
+For questions or collaboration requests, please contact [David Hoffmann](mailto:david.hoffmann@bom.gov.au).
