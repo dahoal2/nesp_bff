@@ -89,7 +89,7 @@ First, the necessary variables (listed in table below) are extracted for each of
   If no GCM is selected, all available for the selected RCM are processed. Output files are stored in `/g/data/eg3/nesp_bff/step1_raw_data_extraction/<RCM>/`. The file names are following the CORDEX naming convention, starting with the location name instead of the variable.
 - When extracting hourly CSIRO-CCAM files, these need to be preprocessed first by rechunking the files from `time:1, lat:612, lon:929` to `time:2000, lat:15, lon:15`. The bash script `rechunk_ccam_parallel.sh` reads each file from `hq89` (CSIRO-CCAM directory), rechunks it with `ncks -O --cnk_dmn` and saves it to `/scratch/eg3/dh4185/rechunked/<GCM>/<scenario>/`. This is meant to be a temporary storage as hourly data of all variables for one GCM and 60 years (30 years histrorical and 30 years ssp370) takes up ~6.3TB of storage. Don't store more than two GCMs. Process the files on /scratch/ asap after completion with `qsub pbs_step1`! Running hourly CCAM data extraction with `qsub pbs_step1` without preprocessing yields a message (*"No files for GCM {_gcm} and {_var} exists. Run rechunk_ccam.sh first."*) and skips to the next gcm without computation. Run qsub pbs_rechunk_ccam_parallel
   It's best practice to run two PBS jobs simultaneously, one for processing historical data, one for processing future (ssp126 or ssp370) data.
-- After rechunking and processing hourly CCAM data, remove interim files from `/scratch/` to free up space. Track `eg3` disk quota with
+- ⚠️ After rechunking and processing hourly CCAM data, remove interim files from `/scratch/` to free up space. Track `eg3` disk quota with
 ```bash
 lquota | grep eg3
 ```
@@ -99,7 +99,7 @@ lquota | grep eg3
 
 # Step 2: QDC-scaling
 The bias adjustment process uses high-quality historical baseline data to correct climate model output. Instead of station observations, we use historical weather data from the BARRA-R2 reanalysis product. A multi-decade baseline, typically 30 years, is needed to capture regional climate variability. Currently, hourly climate projection data lack bias correction, which is essential for aligning them with observed climate statistics. To address this, we apply the Quantile-Delta-Change (QDC) method, a distribution-based statistical technique that adjusts each quantile of observed data using differences between historical and future model outputs. This approach preserves the observed distribution while incorporating the climate change signal. Unlike simpler methods that only shift the mean, QDC captures non-linear distributional changes and is better suited for applications needing realistic extremes (Irving & Macadam, 2024).
-The code in `step2_qdc_scaling.ipynb` follows recommendations and practice from Irving & Macadam (2024) and as detailed in https://github.com/AusClimateService/qqscale/blob/master/developer_notes.md. The code utilises the `sdba` module from the `xclim` python library.
+The code in `step2_qdc_scaling.ipynb` follows recommendations and practice from Irving & Macadam (2024) and as detailed in https://github.com/AusClimateService/qqscale/blob/master/developer_notes.md. The code utilises the `sdba` (Statistical DownScaling Bias Adjustment) module from the `xclim` python library.
 For daily data, the main steps are calculating the adjustment factors model internally for each quantile between historical and future period, and then appying the adjustment factors to the reference dataset (BARRA-R2):
 ```python
 QDC = sdba.QuantileDeltaMapping.train(
@@ -135,8 +135,16 @@ for hour in range(24):
     adjusted_hour = adjusted.where(adjusted.time.dt.hour == hour, drop=True)
     adjusted_chunks.append(adjusted_hour)
 ```
-Foe sense checking, diagnistics are ploted for daily and hourly output as part of the Jupyter script. This includes 
-(Note, the `sdba` module has now become it's own library called [xsdba](https://xsdba.readthedocs.io/en/stable/xclim_migration_guide.html). The `xsdba` repo was added as a submodule but is not fully implemented yet. `sdba` is still imported from `xclim` which yields warning messages but is currently working fine.)
+Additive (`+`) adjustment is applied to temperature as values can be positive or negative and are on a linear scale, while all other variables are using are using multiplicative (`*`) adjustment. For hourly data, radiation (global and direct) falls to zero during night time. The adjustment factor of zero yields `nan`/`inf` values in the adjusted data:
+For sense checking, diagnistics are ploted for daily and hourly output as part of the Jupyter script. This includes climatology, heatmap of adjustment factors and histogram. E.g. for daily BARPA-R-ACCESS-ESM1-5 ssp370 tasmax (top) and sfcWind (bottom) for Melbourne:
+<img src="plots/Melbourne_qdc_daily_tasmax_BARPA-R.png" alt="Plot"/>
+<img src="plots/Melbourne_qdc_daily_sfcWind_BARPA-R.png" alt="Plot"/>
+Or for hourly (12 UTC) BARPA-R-ACCESS-ESM1-5 ssp370 tas for Mildura:
+<img src="plots/Mildura_qdc_hourly_tas.png" alt="Plot"/>
+⚠️ The CCAM data is currently being investigated as there are some spurious results for solar radiation:
+<img src="plots/Melbourne_qdc_daily_rsds_CCAM.png" alt="Plot"/>
+
+(⚠️ Note, the `sdba` module has now become it's own library called [xsdba](https://xsdba.readthedocs.io/en/stable/xclim_migration_guide.html). The `xsdba` repo was added as a submodule but is not fully implemented yet. `sdba` is still imported from `xclim` which yields warning messages but is currently working fine.)
 
 **Key tasks**:
 - In `step2_qdc_scaling.ipynb`, specify RCM (BARPA-R *or* CCAM-v2203-SN) and scenario (historical, ssp126, ssp370)
