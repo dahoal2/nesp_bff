@@ -5,6 +5,7 @@ Code repository for NESP 5.8 Building for the Future project
 
 ## Table of Contents
 - [Executive Summary](#executive-summary)
+- [Explanation of scripts](#explanation-of-scripts)
 - [Step 1: Data Preparation](#step-1-data-preparation)
 - [Step 2: Processing and Analysis](#step-2-processing-and-analysis)
 - [Step 3: Visualization and Output](#step-3-visualization-and-output)
@@ -26,6 +27,11 @@ The resulting TMY and XMY files are formatted in the EnergyPlus Weather (EPW) fo
 
 # Workflow
 **Requirements**: Needs access to projects xp65 (hh5 module), eg3 (NESP project), hq89 (CSIRO-CCAM), py18 (BARPA-R), ob53 (BARRA-R2)
+## Explanation of scripts
+- `step1_extracting_variables.py`: Executable python script that pairs with `pbs_step1` in the `pbs_script` directory to extract variables for the 12 locations of interest.
+- `step1_extracting_variables.ipynb`: Developer version of the above .py script. It can be run on ARE with the effect as the above script.
+- `pbs_scripts/run_step1.ipynb`: A jupyter script that calls `step1_extracting_variables.py`. Can be neglected.
+- `step2_qdc_scaling.ipynb`: Takes output files from Step 1 and applies QDC-scaling to them with BARRA-R2 data in `g/data/eg3/nesp_bff/step1_raw_data_extraction/BARRA-R2/`. Adjust settings to RCM and timescale (`1hr` or 'day`). Runs very quickly, and produces diagnostic plots (histograms, scaling factor and climatology) that are saved in `/g/data/eg3/nesp_bff/plots/qdc_adjustfactor/`.
 
 ## Step 1: Data extraction
 First, the necessary variables are extracted for each point location from raw RCM data. BARPA-R is very efficiently chunked four our operation which favours little chunking across time and lots of chunking along lat and lon. CCAM is chunked for each time step but not at all along lat and lon dimensions which requires the dataset to be fully loaded. It is currently not saved in a different format (comms with Marcus Thatcher). This takes considerable more time to process: BARPA-R day: ~2min, hourly: ~5min. CCAM daily: ~25min, hourly: >7.5h hours. Hence, CCAM hourly data is preprocessed (rechunked and stored on /scratch/eg3/dh4185/) to interim files per year, only loaded if all files for one GCM are present.
