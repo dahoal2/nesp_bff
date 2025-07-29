@@ -136,6 +136,8 @@ for hour in range(24):
     adjusted_chunks.append(adjusted_hour)
 ```
 Additive (`+`) adjustment is applied to temperature as values can be positive or negative and are on a linear scale, while all other variables are using are using multiplicative (`*`) adjustment. For hourly data, radiation (global and direct) falls to zero during night time. The adjustment factor of zero yields `nan`/`inf` values in the adjusted data:
+<img src="plots/radiation_timeseries.png" alt="Plot"/>
+These gaps are backfilled with reference data.
 For sense checking, diagnistics are ploted for daily and hourly output as part of the Jupyter script. This includes climatology, heatmap of adjustment factors and histogram. E.g. for daily BARPA-R-ACCESS-ESM1-5 ssp370 tasmax (top) and sfcWind (bottom) for Melbourne:
 <img src="plots/Melbourne_qdc_daily_tasmax_BARPA-R.png" alt="Plot"/>
 <img src="plots/Melbourne_qdc_daily_sfcWind_BARPA-R.png" alt="Plot"/>
