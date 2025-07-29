@@ -99,12 +99,49 @@ lquota | grep eg3
 
 # Step 2: QDC-scaling
 The bias adjustment process uses high-quality historical baseline data to correct climate model output. Instead of station observations, we use historical weather data from the BARRA-R2 reanalysis product. A multi-decade baseline, typically 30 years, is needed to capture regional climate variability. Currently, hourly climate projection data lack bias correction, which is essential for aligning them with observed climate statistics. To address this, we apply the Quantile-Delta-Change (QDC) method, a distribution-based statistical technique that adjusts each quantile of observed data using differences between historical and future model outputs. This approach preserves the observed distribution while incorporating the climate change signal. Unlike simpler methods that only shift the mean, QDC captures non-linear distributional changes and is better suited for applications needing realistic extremes (Irving & Macadam, 2024).
-
+The code in `step2_qdc_scaling.ipynb` follows recommendations and practice from Irving & Macadam (2024) and as detailed in https://github.com/AusClimateService/qqscale/blob/master/developer_notes.md. The code utilises the `sdba` module from the `xclim` python library.
+For daily data, the main steps are calculating the adjustment factors model internally for each quantile between historical and future period, and then appying the adjustment factors to the reference dataset (BARRA-R2):
+```python
+QDC = sdba.QuantileDeltaMapping.train(
+  da_model_future, da_model_historical, nquantiles=100, group='time.month', kind=_kind
+)
+da_ref_adjust = QDC.adjust(da_ref, interp='linear')
+```
+Hourly data requires an extra step where each hour needs to be processed separately to account for the diurnal cycle. For a smoother result, [Faghih et al (2022](https://hess.copernicus.org/articles/26/1545/2022/) suggest working with a 3 hour sliding window, which means producing data for 4am would train using model data (da_model_future and da_model_historical) for 3am, 4am and 5am, adjust observations (da_ref) for 3am, 4am and 5am (which would produce da_output with 3am, 4am and 5am data in it), and then extract/retain the 4am data from da_output before moving along to 5am (i.e. repeating with 4am, 5am and 6am data and then retaining 5am at the end) (from pers. comms with Damien Irving).
+```python
+for hour in range(24):
+    # Define sliding window: [hour - window, hour, hour + window]
+    hours_to_use = [(hour + offset) % 24 for offset in range(-window, window + 1)]
+       
+    # Filter datasets for selected hours
+    obs_slice = da_obs.where(da_obs.time.dt.hour.isin(hours_to_use), drop=True)
+    hist_slice = da_model_historical.where(da_model_historical.time.dt.hour.isin(hours_to_use), drop=True)
+    fut_slice = da_model_future.where(da_model_future.time.dt.hour.isin(hours_to_use), drop=True)
+ 
+    # Train QDC
+    QDC = sdba.QuantileDeltaMapping.train(
+        fut_slice,
+        hist_slice,
+        nquantiles=100,
+        group='time.month',
+        kind=kind,
+    )
+    qdc_models[hour] = QDC
+       
+    # Adjust obs_slice using the QDC model
+    adjusted = QDC.adjust(obs_slice, interp='linear')
+ 
+    # Extract only the target hour
+    adjusted_hour = adjusted.where(adjusted.time.dt.hour == hour, drop=True)
+    adjusted_chunks.append(adjusted_hour)
+```
+Foe sense checking, diagnistics are ploted for daily and hourly output as part of the Jupyter script. This includes 
+(Note, the `sdba` module has now become it's own library called [xsdba](https://xsdba.readthedocs.io/en/stable/xclim_migration_guide.html). The `xsdba` repo was added as a submodule but is not fully implemented yet. `sdba` is still imported from `xclim` which yields warning messages but is currently working fine.)
 
 **Key tasks**:
-- Run `process_data.py` for statistical analysis
-- Apply filtering and aggregation methods
-- Output is stored in `/outputs/intermediate/`
+- In `step2_qdc_scaling.ipynb`, specify RCM (BARPA-R *or* CCAM-v2203-SN) and scenario (historical, ssp126, ssp370)
+- Run `step2_qdc_scaling.ipynb` on ARE for scaling/mapping extracted output data from step 1 to BARRA-R2.
+- Check produced diagnostic plots for feasibility. See example for Melbourne for BARPA-R_ACCESS-ESM1-5 ssp370 daily data: [View the PDF](plots/Melbourne_AUS-15_ACCESS-ESM1-5_ssp370_r6i1p1f1_BOM_BARPA-R_v1-r1_day_2050_QDC-BARRAR2_AdjFact_facetplot.pdf)
 
 ---
 
