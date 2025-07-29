@@ -1,5 +1,8 @@
 # Files in data folder
 /data/
+/eg3-nesp_bff/
+/job_logs/
+__pycache__/
 
 # Jupyter Notebook
 .ipynb_checkpoints/

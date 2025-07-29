@@ -1,3 +1,6 @@
 [submodule "QME"]
 	path = QME
 	url = https://github.com/AusClimateService/QME
+[submodule "xsdba"]
+	path = xsdba
+	url = https://github.com/Ouranosinc/xsdba.git
