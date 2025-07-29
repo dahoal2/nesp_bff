@@ -1,0 +1,18 @@
+#!/bin/bash
+#PBS -P eg3
+#PBS -N CCAM_day_step1
+#PBS -q normalbw
+#PBS -l storage=gdata/xp65+gdata/eg3+gdata/kj66+gdata/mn51+gdata/ia39+gdata/hq89
+#PBS -l walltime=24:00:00,mem=64GB
+#PBS -l ncpus=14
+#PBS -j oe
+#PBS -o $PBS_O_WORKDIR/job_logs/myjob.out
+##PBS -m abe
+##PBS -M david.hoffmann@bom.gov.au
+
+module use /g/data/xp65/public/modules
+module load conda/analysis3
+
+cd $PBS_O_WORKDIR
+
+python3 -W ignore ../step1_extracting_variables.py  --rcm=CCAM-v2203-SN --gcms=NorESM2-MM --scenario=historical --freq=day --startYear=1985 --endYear=2014 --nworkers=10

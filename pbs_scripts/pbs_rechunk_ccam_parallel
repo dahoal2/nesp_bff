@@ -1,0 +1,28 @@
+#!/bin/bash
+#PBS -P eg3
+#PBS -q normalbw
+#PBS -N historical_rechunk_ccam_parallel
+#PBS -l storage=gdata/eg3+gdata/mn51+gdata/hq89+scratch/eg3
+#PBS -l walltime=08:00:00,mem=252GB
+#PBS -l ncpus=28
+#PBS -m abe
+#PBS -M david.hoffmann@bom.gov.au
+#PBS -l jobfs=100GB
+
+module load nco
+module load parallel  # Make sure GNU parallel is loaded
+
+cd $PBS_O_WORKDIR
+
+GCM="ACCESS-CM2"
+SCENARIO="historical"
+START_YEAR=1985
+END_YEAR=2014
+
+VARS=(tas hurs huss sfcWind psl uas vas clt rsds rsdsdir)
+#VARS=(hurs huss rsdsdir)
+
+export GCM SCENARIO START_YEAR END_YEAR
+
+# Run each variable in parallel, limit jobs to number of CPUs
+parallel -j 10 ../rechunk_ccam_parallel.sh $GCM $SCENARIO $START_YEAR $END_YEAR {} ::: "${VARS[@]}"
