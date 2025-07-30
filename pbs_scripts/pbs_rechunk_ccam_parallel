@@ -1,9 +1,9 @@
 #!/bin/bash
 #PBS -P eg3
 #PBS -q normalbw
-#PBS -N historical_rechunk_ccam_parallel
+#PBS -N ssp370_rechunk_ccam_parallel
 #PBS -l storage=gdata/eg3+gdata/mn51+gdata/hq89+scratch/eg3
-#PBS -l walltime=08:00:00,mem=252GB
+#PBS -l walltime=06:00:00,mem=252GB
 #PBS -l ncpus=28
 #PBS -m abe
 #PBS -M david.hoffmann@bom.gov.au
@@ -14,10 +14,10 @@ module load parallel  # Make sure GNU parallel is loaded
 
 cd $PBS_O_WORKDIR
 
-GCM="ACCESS-CM2"
-SCENARIO="historical"
-START_YEAR=1985
-END_YEAR=2014
+GCM="CESM2"
+SCENARIO="ssp370"
+START_YEAR=2035
+END_YEAR=2064
 
 VARS=(tas hurs huss sfcWind psl uas vas clt rsds rsdsdir)
 #VARS=(hurs huss rsdsdir)

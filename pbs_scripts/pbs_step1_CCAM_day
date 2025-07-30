@@ -2,7 +2,7 @@
 #PBS -P eg3
 #PBS -N CCAM_day_step1
 #PBS -q normalbw
-#PBS -l storage=gdata/xp65+gdata/eg3+gdata/kj66+gdata/mn51+gdata/ia39+gdata/hq89
+#PBS -l storage=gdata/xp65+gdata/eg3+gdata/hq89+gdata/py18+gadata/ob53
 #PBS -l walltime=24:00:00,mem=64GB
 #PBS -l ncpus=14
 #PBS -j oe
