@@ -1,0 +1,17 @@
+#!/bin/bash
+#PBS -P eg3
+#PBS -q normalbw
+#PBS -N step1_BARRAR2_1hr
+#PBS -l storage=gdata/xp65+gdata/eg3+gdata/kj66+gdata/mn51+gdata/ia39+gdata/py18+gdata/hq89+gdata/ob53
+#PBS -l walltime=05:00:00,mem=256GB
+#PBS -l ncpus=28
+#PBS -m abe
+#PBS -M david.hoffmann@bom.gov.au
+#PBS -l jobfs=10GB
+
+module use /g/data/xp65/public/modules
+module load conda/analysis3
+
+cd $PBS_O_WORKDIR
+
+python3 -W ignore ../step1_extracting_variables.py --rcm=BARRA-R2 --scenario=historical --freq=1hr --startYear=1985 --endYear=2024 --nworkers=20
