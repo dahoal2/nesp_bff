@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -P eg3
 #PBS -q normalbw
-#PBS -N ssp370_rechunk_ccam_parallel
+#PBS -N Nor_hist_rechunk_ccam_parallel
 #PBS -l storage=gdata/eg3+gdata/mn51+gdata/hq89+scratch/eg3
 #PBS -l walltime=06:00:00,mem=252GB
 #PBS -l ncpus=28
@@ -14,8 +14,8 @@ module load parallel  # Make sure GNU parallel is loaded
 
 cd $PBS_O_WORKDIR
 
-GCM="CESM2"
-SCENARIO="ssp370"
+GCM="NorESM2-MM"
+SCENARIO="ssp126"
 START_YEAR=2035
 END_YEAR=2064
 

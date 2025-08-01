@@ -1,9 +1,9 @@
 #!/bin/bash
 #PBS -P eg3
 #PBS -q normalbw
-#PBS -N step1_day
+#PBS -N hist_step1_day
 #PBS -l storage=gdata/xp65+gdata/eg3+gdata/kj66+gdata/mn51+gdata/ia39+gdata/py18+gdata/hq89
-#PBS -l walltime=20:00:00,mem=64GB
+#PBS -l walltime=03:00:00,mem=64GB
 #PBS -l ncpus=14
 #PBS -m abe
 #PBS -M david.hoffmann@bom.gov.au
@@ -14,4 +14,4 @@ module load conda/analysis3
 
 cd $PBS_O_WORKDIR
 
-python3 -W ignore ../step1_extracting_variables.py --rcm=CCAM-v2203-SN --scenario=ssp126 --freq=day --startYear=2035 --endYear=2064 --nworkers=20
+python3 -W ignore ../step1_extracting_variables.py --rcm=CCAM-v2203-SN --scenario=historical --freq=1hr --startYear=2035 --endYear=2064 --nworkers=20
