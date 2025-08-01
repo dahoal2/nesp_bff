@@ -162,67 +162,64 @@ def process_time(da,_var,_timescale):
     return da
     
 def plot_qdc_hourly_diagnostics(da_obs_1hr,da_model_hist_1hr,da_model_fut_1hr,
-                                QDC_dict,adjusted_slices,var,model,location):
+                                QDC_dict,adjusted_slices,var,model,location, hour):
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
     import matplotlib.gridspec as gridspec
     
-    selected_hours = [0,6,12,18] #[0,2,4,6,8,10,12,14,16,18,20,22]
+    qdc = QDC_dict[hour]
+    adj = adjusted_slices[hour]
     
-    for hour in selected_hours:
-        qdc = QDC_dict[hour]
-        adj = adjusted_slices[hour]
+    obs_hour = da_obs_1hr.where(da_obs_1hr.time.dt.hour == hour, drop=True)
+    hist_hour = da_model_hist_1hr.where(da_model_hist_1hr.time.dt.hour == hour, drop=True)
+    fut_hour = da_model_fut_1hr.where(da_model_fut_1hr.time.dt.hour == hour, drop=True)
     
-        obs_hour = da_obs_1hr.where(da_obs_1hr.time.dt.hour == hour, drop=True)
-        hist_hour = da_model_hist_1hr.where(da_model_hist_1hr.time.dt.hour == hour, drop=True)
-        fut_hour = da_model_fut_1hr.where(da_model_fut_1hr.time.dt.hour == hour, drop=True)
+    # Set up GridSpec
+    fig = plt.figure(figsize=(12, 8))
+    gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1.2])
     
-        # Set up GridSpec
-        fig = plt.figure(figsize=(12, 8))
-        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1.2])
+    ax0 = fig.add_subplot(gs[0, 0])  # Monthly means
+    ax1 = fig.add_subplot(gs[0, 1])  # Heatmap
+    ax2 = fig.add_subplot(gs[1, :])  # Full-width histogram
     
-        ax0 = fig.add_subplot(gs[0, 0])  # Monthly means
-        ax1 = fig.add_subplot(gs[0, 1])  # Heatmap
-        ax2 = fig.add_subplot(gs[1, :])  # Full-width histogram
+    fig.suptitle(f"{location}: QDC Diagnostics for {model} {var} - Hour {hour:02d} UTC", fontsize=14, y=0.95)
     
-        fig.suptitle(f"{location}: QDC Diagnostics for {model} {var} - Hour {hour:02d} UTC", fontsize=14, y=0.95)
+    # 1a. Monthly means
+    obs_hour.groupby("time.month").mean().plot(ax=ax0, label="'Obs' hist. (2000)", color="blue")
+    hist_hour.groupby("time.month").mean().plot(ax=ax0, label="Model hist. (2000)", color="green")
+    fut_hour.groupby("time.month").mean().plot(ax=ax0, label="Model future (2050-ssp370)", color="red")
+    adj.groupby("time.month").mean().plot(ax=ax0, label="'Obs' adjusted", linestyle="--", color="purple")
+    ax0.set_title("Monthly Mean by Hour")
+    ax0.legend()
     
-        # 1a. Monthly means
-        obs_hour.groupby("time.month").mean().plot(ax=ax0, label="'Obs' hist. (2000)", color="blue")
-        hist_hour.groupby("time.month").mean().plot(ax=ax0, label="Model hist. (2000)", color="green")
-        fut_hour.groupby("time.month").mean().plot(ax=ax0, label="Model future (2050-ssp370)", color="red")
-        adj.groupby("time.month").mean().plot(ax=ax0, label="'Obs' adjusted", linestyle="--", color="purple")
-        ax0.set_title("Monthly Mean by Hour")
-        ax0.legend()
+    # 1b. Adjustment factor heatmap
+    af = qdc.ds.af
+    vmin, vmax = float(af.min()), float(af.max())
+    if vmin < 0 and vmax > 0:
+        cmap = "RdBu_r"
+        center = 0.0
+    else:
+        cmap = "viridis"
+        center = None
     
-        # 1b. Adjustment factor heatmap
-        af = qdc.ds.af
-        vmin, vmax = float(af.min()), float(af.max())
-        if vmin < 0 and vmax > 0:
-            cmap = "RdBu_r"
-            center = 0.0
-        else:
-            cmap = "viridis"
-            center = None
-    
-        af.transpose("month", "quantiles").plot.pcolormesh(
+    af.transpose("month", "quantiles").plot.pcolormesh(
             ax=ax1, cmap=cmap, center=center,
             x="quantiles", y="month",
             cbar_kwargs={"label": "Adjustment Factor"}
-        )
-        ax1.set_title("QDC Adjustment Factors")
+    )
+    ax1.set_title("QDC Adjustment Factors")
     
-        # 2. Histogram
-        sns.histplot(obs_hour.values.flatten(), ax=ax2, label="'Obs' hist. (2000)", kde=True, stat="density", bins=50, color="blue")
-        sns.histplot(hist_hour.values.flatten(), ax=ax2, label="Model hist. (2000)", kde=True, stat="density", bins=50, color="green")
-        sns.histplot(fut_hour.values.flatten(), ax=ax2, label="Model future (2050-ssp370)", kde=True, stat="density", bins=50, color="red")
-        sns.histplot(adj.values.flatten(), ax=ax2, label="'Obs' adjusted", kde=True, stat="density", bins=50, color="purple")
-        ax2.set_title("Distributions")
-        ax2.legend()
+    # 2. Histogram
+    sns.histplot(obs_hour.values.flatten(), ax=ax2, label="'Obs' hist. (2000)", kde=True, stat="density", bins=50, color="blue")
+    sns.histplot(hist_hour.values.flatten(), ax=ax2, label="Model hist. (2000)", kde=True, stat="density", bins=50, color="green")
+    sns.histplot(fut_hour.values.flatten(), ax=ax2, label="Model future (2050-ssp370)", kde=True, stat="density", bins=50, color="red")
+    sns.histplot(adj.values.flatten(), ax=ax2, label="'Obs' adjusted", kde=True, stat="density", bins=50, color="purple")
+    ax2.set_title("Distributions")
+    ax2.legend()
     
-        # plt.tight_layout()
-        # plt.savefig(fig_file, bbox_inches='tight')
+    # plt.tight_layout()
+    # plt.savefig(fig_file, bbox_inches='tight')
 
 
 # Function to compute great-circle distance using NumPy (vectorised)
