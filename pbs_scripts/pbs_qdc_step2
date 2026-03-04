@@ -1,0 +1,33 @@
+#!/bin/bash
+#PBS -N qdc_step2
+#PBS -P eg3
+#PBS -q normalbw
+#PBS -l walltime=01:00:00
+#PBS -l mem=18GB
+#PBS -l ncpus=4
+#PBS -l jobfs=10GB
+#PBS -l storage=gdata/eg3+gdata/xp65+gdata/mn51
+#PBS -m abe
+#PBS -M david.hoffmann@bom.gov.au
+#PBS -j oe
+#PBS -o /home/565/dh4185/mn51-dh4185/repos_collab/nesp_bff/pbs_scripts/job_logs/qdc_step2/
+#PBS -r y
+set -euo pipefail
+
+module use /g/data/xp65/public/modules
+module load conda/analysis3-25.06
+#export PYTHONNOUSERSITE=1
+
+LOC="${LOC:?Need LOC}"
+SCENARIO="${SCENARIO:?Need SCENARIO}"
+
+SCRIPT="/home/565/dh4185/mn51-dh4185/repos_collab/nesp_bff/run_step2_qdc_scaling.py"
+
+python "$SCRIPT" \
+  --loc "$LOC" \
+  --scenario "$SCENARIO" \
+  --rcm "BARPA-R" \
+  --obs_name "NatHERS" \
+  --nslots 24 \
+  --window 1 \
+  --nq 100
