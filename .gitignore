@@ -1,10 +1,11 @@
 # Files in data folder
 /data/
 /eg3-nesp_bff/
-/job_logs/
+/pbs_scripts/job_logs/
 __pycache__/
 /plots/
 *.tar
+BARRA_adjust_comparison_Chun-Hsu.nc
 
 # Jupyter Notebook
 .ipynb_checkpoints/
