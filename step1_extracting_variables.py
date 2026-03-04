@@ -78,8 +78,14 @@ def main(inargs):
                     memory_limit=get_memory_limit()) 
 
     print(f"---------- {_rcm} for '{_freq}' data ----------")
-    updated_locations = utils.update_locations(xr.open_dataset(model_dict[_rcm]["sftlf"]).sftlf, locations)
-    
+    # updated_locations = utils.update_locations(xr.open_dataset(model_dict[_rcm]["sftlf"]).sftlf, locations)
+    # New grid cell selection method to include orography. Added 13 Febraury 2025
+    updated_locations = utils.update_locations_orog_sftlf(xr.open_dataset(model_dict[_rcm]["sftlf"]).sftlf,
+                             xr.open_dataset(model_dict[_rcm]["orog"]).orog,
+                             locations,
+                             land_fraction_threshold=inargs.land_fraction_threshold,
+                             orog_threshold=inargs.orog_threshold,
+                             return_gridcell_elev=True)
     # Iterating though the 12 locations in the updated locations dictionary
     for loc in updated_locations:
         start_time_loc = time.time()
@@ -164,24 +170,36 @@ def main(inargs):
                                                                 preprocess=lambda ds: utils.preprocess_location(ds, lat, lon))[_vars[_var][0]]
                             da = da.chunk({'time': -1}).sel(time=slice(str(start_y),str(end_y)))
                             # Aliging time coordinates (mix of variables at half hour and full hours)
-                            da_all = utils.process_time(da,_vars[_var][0],_timescale)
-                            var_list.append(da_all.to_dataset())
+                            # da_all = utils.process_time(da,_vars[_var][0],_timescale)
+                            # da_all = da.resample(time="30min").interpolate("linear")
+                            var_list.append(da.to_dataset())
                                                     
                             print(f"Processing time for {_var}: {((time.time() - start_time_var)/60):.2f} minutes\n")
 
                     # If BARPA-R or BARRA-R2 at daily or hourly timescale, or CCAM at daily time scale selected process all years at once.
-                    elif _rcm in ["BARPA-R","BARRA-R2"] or _rcm == "CCAM-v2203-SN" and _timescale == "day":
-                        print(f"Use data from disk for {_var}.")
-                        # Get file paths using the ACS dataset finder
-                        all_data = get_datasets("ACS_DS",
-                                            rcm=_rcm, gcm=_gcm, scenario=_scenario,
-                                            grid=model_dict[_rcm]["grid"],
-                                            org=model_dict[_rcm]["org"],
-                                            mdl_run=model_dict[_rcm]["gcms"][_gcm]["mdl_run"],
-                                            ver=model_dict[_rcm]["gcms"][_gcm]["version"],
-                                            timescale=_timescale,
-                                            year=year_range(start_y, end_y)).select(var=_vars[_var], exact_match=True)
-
+                    elif _rcm in ["BARRA-C2","BARPA-R","BARRA-R2"] or _rcm == "CCAM-v2203-SN" and _timescale == "day":
+                        if _var == "solar_diffuse":
+                            print(f"Use data from /g/data/eg3/nesp_bff/{_rcm}_{_vars[_var]}/ for {_var}.")
+                            # Get file paths using the ACS dataset finder
+                            all_data = get_datasets("NESP",
+                                                rcm=_rcm, gcm=_gcm, scenario=_scenario,
+                                                grid=model_dict[_rcm]["grid"],
+                                                org=model_dict[_rcm]["org"],
+                                                mdl_run=model_dict[_rcm]["gcms"][_gcm]["mdl_run"],
+                                                ver=model_dict[_rcm]["gcms"][_gcm]["version"],
+                                                timescale=_timescale,
+                                                year=year_range(start_y, end_y)).select(var=_vars[_var], exact_match=True)
+                        else:
+                            print(f"Use data from disk (ia39/kj66) for {_var}.")
+                            # Get file paths using the ACS dataset finder
+                            all_data = get_datasets("ACS_DS",
+                                                rcm=_rcm, gcm=_gcm, scenario=_scenario,
+                                                grid=model_dict[_rcm]["grid"],
+                                                org=model_dict[_rcm]["org"],
+                                                mdl_run=model_dict[_rcm]["gcms"][_gcm]["mdl_run"],
+                                                ver=model_dict[_rcm]["gcms"][_gcm]["version"],
+                                                timescale=_timescale,
+                                                year=year_range(start_y, end_y)).select(var=_vars[_var], exact_match=True)
                         # Read all years and preprocessing lat/lon selection
                         da = xr.open_mfdataset(all_data.get_files(), parallel=True,
                                                 preprocess=lambda ds: utils.preprocess_location(ds, lat, lon))[_vars[_var][0]]
@@ -190,7 +208,8 @@ def main(inargs):
                         # Using hourly huss data to determine daily hussmax and hussmin
                         if _var == 'humidity_specific_max' or _var == 'humidity_specific_min':
                             da = utils.process_humidity(da,_var)
-                        da_all = utils.process_time(da,_vars[_var][0],_timescale)
+                        da_all = utils.process_time(da,_vars[_var][0],_timescale) # using 'ceil'
+                        # da_all = da.resample(time="30min").interpolate("linear")
                         var_list.append(da_all.to_dataset())
                     
                     else:
@@ -209,10 +228,19 @@ def main(inargs):
                                               "model_level_number", "sigma"], 
                                               errors="ignore") for da in var_list]
     
+                # Merge data
                 da_var = xr.merge(cleaned_list)
-                print(da_var)
 
-                saver = da_var.to_netcdf(out_file,compute=False)
+                # Compute new rsds as the sum of rsdsdir and rsdsdif
+                rsds_new = da_var.rsdsdir + da_var.rsdsdif
+                rsds_new.attrs.update({"long_name":"Surface Downwelling Shortwave Radiation",
+                                       "standard_name":"surface_downwelling_shortwave_flux_in_air",
+                                       "cell_methods":"time: mean (interval: 1 hour)"})
+                rsds_new
+                da_var_all = da_var.assign(rsds=rsds_new)
+                print(da_var_all)
+
+                saver = da_var_all.to_netcdf(out_file,compute=False)
                 future = client.persist(saver)
                 dask.distributed.progress(future)
                 future.compute()
@@ -249,12 +277,14 @@ author:
 
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Extract location data from RCMs")
-    parser.add_argument("--rcm", required=True, choices = ["BARRA-R2","BARPA-R","CCAM-v2203-SN"], help="RCM name, e.g., BARPA-R")
-    parser.add_argument("--gcms", nargs="+", choices=["ACCESS-ESM1-5", "ACCESS-CM2", "CESM2", "CMCC-ESM2", "CNRM-ESM2-1", "EC-Earth3", "NorESM2-MM"],help="Optional list of GCMs to process. If omitted, all available GCMs will be processed.")
+    parser.add_argument("--rcm", required=True, choices = ["BARRA-C2","BARRA-R2","BARPA-R","CCAM-v2203-SN"], help="RCM name, e.g., BARPA-R")
+    parser.add_argument("--gcms", nargs="+", choices=["ACCESS-ESM1-5", "ACCESS-CM2", "CESM2", "CMCC-ESM2", "MPI-ESM1-2-HR", "EC-Earth3", "NorESM2-MM"],help="Optional list of GCMs to process. If omitted, all available GCMs will be processed.")
     parser.add_argument("--scenario", required=True, help="Scenario, e.g., ssp370 or historical")
     parser.add_argument("--startYear", type=int, required=True, help="Start year")
     parser.add_argument("--endYear", type=int, required=True, help="End year")
     parser.add_argument("--freq", required=True, choices = ['1hr','day'], help="Use hourly (1hr) or daily (day) frequency")
+    parser.add_argument("--land_fraction_threshold", type=int, default=80, help="%-threshold for land area fraction to filter by for closest grid point selection. Default is 80%.")
+    parser.add_argument("--orog_threshold", type=int, default=150, help="meter-threshold for elevation tolerance to filter by for closest grid point selection. Default is 150m.")
     parser.add_argument("--outputDir", type=str, default="/g/data/eg3/nesp_bff/step1_raw_data_extraction/", help="Output directory on Gadi. Default is '/g/data/eg3/nesp_bff/step1_raw_data_extraction/{rcm}/'")
     parser.add_argument("--nworkers", type=int, required=True, help="Number of wdask workers. 20-25 recommended for 32-64GB job size.")
     args = parser.parse_args()
