@@ -16,7 +16,7 @@ Distribution of these files is restricted to the designated testing group. They 
 
 NESP Climate Systems Hub – Building for the Future
 
-This work forms part of the *Building for the Future* project under the National Environmental Science Program (NESP).
+This work forms part of the Building for the Future project under the National Environmental Science Program (NESP).
 
 The objective of this prototype dataset is to explore the use of regional climate model projections to generate future climate weather files compatible with the NatHERS simulation framework.
 
@@ -83,8 +83,8 @@ The following hourly variables are extracted from BARPA-R simulations:
 | uas      | Zonal wind component         |m/s   |
 | vas      | Meridional wind component    |m/s   |
 | clt      | Total cloud cover            |%     |
-| rsdsdir  | Direct shortwave radiation   |W/m-2 |
-| rsdsdif  | Diffuse shortwave radiation  |W/m-2 |
+| rsdsdir  | Direct shortwave radiation   |W m⁻² |
+| rsdsdif  | Diffuse shortwave radiation  |W m⁻² |
 
 ### Selection of Representative BARPA-R Grid Cells
 
@@ -98,7 +98,7 @@ A grid cell is considered eligible if it satisfies the following conditions:
 - surface elevation (orography) > 0 m
 - grid-cell elevation within ±150 m of the NatHERS station elevation
 
-Among all eligible grid cells, the grid cell with the **minimum great-circle distance to the station location** is selected.
+Among all eligible grid cells, the grid cell with the minimum great-circle distance to the station location is selected.
 The final station location is updated to the coordinates of the selected grid cell. The station elevation is kept to compute the correct station-level surface pressure (see next step).
 
 ---
@@ -112,16 +112,13 @@ Prior to bias correction, several variables are transformed to ensure consistenc
 BARPA-R provides mean sea level pressure (psl).
 For NatHERS weather files, station-level surface pressure (ps) is required.
 
-Surface pressure is derived from mean sea level pressure using the site elevation from the NatHERS dataset and standard atmospheric relationships.
-
-This adjustment ensures that pressure values represent the local station elevation rather than sea level conditions.
+Surface pressure is derived from mean sea level pressure using the site elevation from the NatHERS dataset and standard atmospheric relationships. This adjustment ensures that pressure values represent the local station elevation rather than sea level conditions.
 
 ---
 
 ### Direct normal irradiance (DNI)
 
 The NatHERS reference dataset includes Direct Normal Irradiance (DNI), while BARPA-R provides direct horizontal shortwave radiation (rsdsdir).
-
 To ensure comparable variables for bias correction, DNI is derived from rsdsdir using the solar altitude angle (slr_alt) from the NatHERS dataset:
 
 DNI = rsdsdir / sin(slr_alt)
@@ -146,12 +143,12 @@ The following variables are bias-corrected:
 * rsdsdir
 * rsdsdif
 
-The QDC approach preserves projected climate change signals while adjusting the distribution of model outputs to better match observed climatology. For radiation variables, bias-adjusted values at solar altitude angles below 10° are replaced with the corresponding observational values to avoid artefacts near sunrise and sunset.
+The QDC approach preserves projected climate change signals while adjusting the distribution of model outputs to better match observed climatology (Irving & Macadam 2024). For radiation variables, bias-adjusted values at solar altitude angles below 10° are replaced with the corresponding observational values to avoid artefacts near sunrise and sunset.
 
 Key characteristics of the implementation:
 
-* applied at hourly resolution using a +/- 1 hour sliding temporal window
-* quantile mapping performed using 100 quantiles, allowing the bias correction to capture distributional differences between model and observations while maintaining robust quantile estimation given the available sample size
+* applied at hourly resolution using a +/- 1 hour sliding temporal window for smooth transitioning between hours
+* quantile mapping performed using 100 quantiles, allowing the bias correction to capture distributional differences between model and observations while maintaining robust quantile estimation given the available sample size (175320 hourly time steps)
 
 ---
 
@@ -181,6 +178,10 @@ Global horizontal shortwave radiation is reconstructed as:
 
 rsds = rsdsdir + rsdsdif
 
+where rsdsdir is derived from DNI by:
+
+rsdsdir =  DNI * sin(slr_alt)
+
 ---
 
 ## Wind direction
@@ -206,16 +207,13 @@ Variables are converted to units required by the NatHERS weather file format.
 # Typical Meteorological Year (TMY) and Extreme Meteorological Year (XMY) (!!!FOR SURENDRA TO COMPLETE!!!)
 
 Prototype NatHERS weather files include TMY and XMY datasets constructed from the bias-corrected climate simulations.
-
 The following methodology is currently under development and subject to refinement.
 
-### Typical Meteorological Year (TMY)
-
+### Typical/Representative Meteorological Year (TMY/RMY)
 
 * selection of representative months from the multi-year climate simulation
 * evaluation of candidate months based on statistical similarity to long-term climate distributions
 * assembly of representative months into a synthetic typical year
-
 
 ---
 
@@ -235,16 +233,17 @@ These years are selected from the climate simulations based on heatwave metrics 
 
 # Prototype File Structure
 
-Each NetCDF file represents:
+Each file represents:
 
-* a single location
-* a single climate model
-* a single emission scenario
-* a future 20-year simulation period
+* a single location (e.g. Melbourne)
+* a single climate model (e.g. ACCESS-ESM1.5)
+* a single emission scenario (e.g.ssp370)
+* a future 20-year simulation period (e.g. 2041-2060)
+* a weather file type identifier with method (e.g. Sandia RMY)
 
 Example filename:
 
-Cairns_AUS-15_ACCESS-CM2_ssp126_r4i1p1f1_BOM_BARPA-R_v1-r1_1hr_2021-2040_QDC-NatHERS.nc
+Melbourne_AUS-15_ACCESS-ESM1-5_ssp370_r6i1p1f1_BOM_BARPA-R_v1-r1_1hr_QDC-NatHERS_sandia_RMY_2041-2060
 
 ---
 
@@ -264,19 +263,26 @@ Further research and validation are required before such datasets could be consi
 # Project Contributors
 
 This work was undertaken as part of the NESP Building for the Future project.
+* Project lead: Ramona Dalla Pozza
+* Contributors: Surendra Rauniyar, David Hoffmann
 
 Contributors include researchers from:
 
-* Australian Bureau of Meteorology
+* Bureau of Meteorology
+* Australian Climate Service
 * collaborating research partners within the NESP Climate Systems Hub
 
 ---
 
 # Acknowledgements
 
-Climate projections used in this dataset were produced using the BARPA-R regional climate modelling system developed by the Australian Bureau of Meteorology.
+Climate projections used in this dataset were produced using the BARPA-R regional climate modelling system developed by the Bureau of Meteorology. More details can be found in the Bureau Research Report #069.
 
-CMIP6 global climate model simulations were used as boundary conditions for the regional simulations.
+# References
+
+Su, C.-H., Stassen, C., Howard, E., Ye, H., Bell, S. S., Pepler, A., Dowdy, A. J., Tucker, S. O., Franklin, C. (2022), BARPA: New development of ACCESS-based regional climate modelling for Australian Climate Service, Bureau Research Report 069, accessed online http://www.bom.gov.au/research/publications/researchreports/BRR-069.pdf 
+
+Irving, D. and Macadam, I. (2024) Application-Ready Climate Projections from CMIP6 using the Quantile Delta Change method. CSIRO Climate Innovation Hub Technical Note 5. https://doi.org/10.25919/03by-9y62 
 
 
 
