@@ -3,6 +3,8 @@
 /eg3-nesp_bff/
 /job_logs/
 __pycache__/
+/plots/
+*.tar
 
 # Jupyter Notebook
 .ipynb_checkpoints/
