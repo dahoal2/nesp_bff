@@ -137,6 +137,17 @@ def main():
             ds_nathers_loc["lon"] = ds_hist["lon"]
     
             ds_fut_aligned = utils.align_future_to_historical(ds_hist, ds_fut)
+
+            def _has_feb29(da: xr.DataArray) -> bool:
+                return bool(((da.time.dt.month == 2) & (da.time.dt.day == 29)).any())
+        
+            def _drop_feb29(da: xr.DataArray) -> xr.DataArray:
+                return da.where(~((da.time.dt.month == 2) & (da.time.dt.day == 29)), drop=True)
+            
+            model_has_feb29 = _has_feb29(ds_fut_aligned) or _has_feb29(ds_hist)
+
+            if not model_has_feb29:
+                ds_nathers_loc = _drop_feb29(ds_nathers_loc)
     
             var_datasets = []
     
@@ -261,4 +272,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()                                                                                                                                                                 
+    main()
