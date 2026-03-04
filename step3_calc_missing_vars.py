@@ -111,6 +111,17 @@ def degree_to_compassIndex(degrees: xr.DataArray, sfcWind: xr.DataArray, calm_th
 def process_one(infile: str, outfile: str, ds_nathers: xr.Dataset, *, compress: bool = True) -> None:
     ds = xr.open_dataset(infile)
 
+    def _has_feb29(da: xr.DataArray) -> bool:
+        return bool(((da.time.dt.month == 2) & (da.time.dt.day == 29)).any())
+
+    def _drop_feb29(da: xr.DataArray) -> xr.DataArray:
+        return da.where(~((da.time.dt.month == 2) & (da.time.dt.day == 29)), drop=True)
+    
+    model_has_feb29 = _has_feb29(ds)
+
+    if not model_has_feb29:
+        ds_nathers = _drop_feb29(ds_nathers)
+
     # Temperature
     tas = convert_temp_unit(ds["tas"]).rename("tas")#("Dry_bulb_temperature")
     tas.attrs["cell_methods"] = "time: point (interval: 1H)"
