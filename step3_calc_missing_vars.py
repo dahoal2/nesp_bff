@@ -183,8 +183,7 @@ def process_one(infile: str, outfile: str, ds_nathers_in: xr.Dataset, *, compres
             "units": "oktas",
             "long_name": "Total Cloud Cover",
             "standard_name": "cloud_octas",
-            "comment" = "No QDC performed. Taken from NatHERS file directly."
-
+            "comment": "No QDC performed. Taken from NatHERS file directly.",
         })
 
         # Assemble outputs
