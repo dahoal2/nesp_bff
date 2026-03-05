@@ -33,6 +33,49 @@ logging.getLogger().setLevel(logging.CRITICAL)
 import numpy as np
 import xarray as xr
 
+import numpy as np
+import xarray as xr
+
+def compute_fdir_time(ds_fut_raw: xr.Dataset, *, eps=1e-6, rsds_threshold=5.0) -> xr.DataArray:
+    """
+    Compute monthly-hourly direct fraction from raw future model:
+        f_dir(month,hour) = mean(rsdsdir)/mean(rsds)
+    then map it back to the full time series:
+        f_dir_time(time) = f_dir(month(time), hour(time))
+
+    Assumes rsds and rsdsdir are horizontal components (as in the model files).
+    """
+    rsds = ds_fut_raw["rsds"]
+    rsdsdir = ds_fut_raw["rsdsdir"]
+
+    # Only use "sunlit" samples to estimate the climatological fraction
+    sun = rsds > rsds_threshold
+
+    # Add month/hour as explicit coords on the time dimension
+    tmp = xr.Dataset(
+        {"rsds": rsds.where(sun), "rsdsdir": rsdsdir.where(sun)}
+    ).assign_coords(
+        month=("time", ds_fut_raw.time.dt.month.data),
+        hour=("time", ds_fut_raw.time.dt.hour.data),
+    )
+
+    # Stack month+hour into the time index, then groupby that index
+    tmp2 = tmp.set_index(time=["month", "hour"])
+
+    rsds_mh = tmp2["rsds"].groupby("time").mean("time")
+    dir_mh  = tmp2["rsdsdir"].groupby("time").mean("time")
+
+    # Ratio then unstack to dims (month, hour)
+    f_dir_mh = (dir_mh / xr.where(rsds_mh > eps, rsds_mh, np.nan)).clip(0, 1).fillna(0)
+    f_dir_mh = f_dir_mh.unstack("time")  # dims: month, hour
+
+    # Map to each timestamp in ds_fut_raw
+    f_dir_time = f_dir_mh.sel(month=ds_fut_raw.time.dt.month, hour=ds_fut_raw.time.dt.hour)
+    f_dir_time = f_dir_time.assign_coords(time=ds_fut_raw.time)
+
+    return f_dir_time.rename("f_dir")
+
+    
 def _proj_from_altitude(solar_altitude_deg: xr.DataArray) -> xr.DataArray:
     """
     Projection factor for converting between direct horizontal and DNI.
