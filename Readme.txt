@@ -116,20 +116,6 @@ Surface pressure is derived from mean sea level pressure using the site elevatio
 
 ---
 
-### Direct normal irradiance (DNI)
-
-The NatHERS reference dataset includes Direct Normal Irradiance (DNI), while BARPA-R provides direct horizontal shortwave radiation (rsdsdir).
-To ensure comparable variables for bias correction, DNI is derived from rsdsdir using the solar altitude angle (slr_alt) from the NatHERS dataset:
-
-DNI = rsdsdir / sin(slr_alt)
-
-where:
-
-* rsdsdir = direct horizontal radiation
-* slr_alt = solar altitude angle
-
----
-
 # Bias Correction Method
 
 Selected variables are bias-corrected using Quantile Delta Change (QDC) scaling relative to a NatHERS observational reference dataset.
@@ -140,8 +126,7 @@ The following variables are bias-corrected:
 * huss
 * sfcWind
 * psl
-* rsdsdir
-* rsdsdif
+* rsds
 
 The QDC approach preserves projected climate change signals while adjusting the distribution of model outputs to better match observed climatology (Irving & Macadam 2024). For radiation variables, bias-adjusted values at solar altitude angles below 10° are replaced with the corresponding observational values to avoid artefacts near sunrise and sunset.
 
@@ -163,7 +148,7 @@ The following variables are currently not bias corrected due to methodological l
 |                | uous quantile mapping approach used here.               |
 | wind direction | Circular variable requiring specialised bias correction |
 
-These variables are therefore retained directly from the BARPA-R simulations.
+These variables are therefore retained directly from the NatHERS data.
 This limitation should be considered when interpreting prototype results.
 
 ---
@@ -172,21 +157,46 @@ This limitation should be considered when interpreting prototype results.
 
 Additional variables required for NatHERS weather files are derived during processing.
 
-## Solar radiation
+## Shortwave radiation bias adjustment
 
-Global horizontal shortwave radiation is reconstructed as:
+To maintain physical consistency, the bias correction is applied only to the global horizontal irradiance (rsds). The direct and diffuse components are then reconstructed using the direct radiation fraction derived from the raw BARPA-R model output.
 
-rsds = rsdsdir + rsdsdif
+## Direct radiation fraction
 
-where rsdsdir is derived from DNI by:
+The fraction of direct radiation is calculated from the unadjusted BARPA-R data as:
 
-rsdsdir =  DNI * sin(slr_alt)
+f_dir(month, hour) = mean(rsdsdir) / mean(rsds)
 
----
+where the means are calculated for each combination of month and hour across the full time series.
+This produces a monthly-hourly climatology of the direct radiation fraction.
+For each timestep t, the corresponding fraction is assigned based on its month and hour.
 
-## Wind direction
+## Reconstruction of radiation components
 
-Wind direction is derived from the vector wind components (uas, vas) using standard meteorological conventions and is computed using the xclim package (https://xclim.readthedocs.io/en/stable/apidoc/xclim.indicators.convert.html).
+After bias correcting the global radiation (rsds_adj), the direct and diffuse components are reconstructed as:
+
+rsdsdir_adj = rsds_adj * f_dir(time)
+rsdsdif_adj = rsds_adj - rsdsdir_adj
+
+This approach ensures:
+
+* the physical constraint rsds = rsdsdir + rsdsdif
+* stable direct/diffuse partitioning
+* preservation of the model-simulated seasonal and diurnal structure of the direct fraction
+
+## Direct Normal Irradiance (DNI)
+
+The NatHERS reference dataset includes Direct Normal Irradiance (DNI), while BARPA-R provides direct horizontal irradiance (rsdsdir).
+To ensure comparable variables for the NatHERS weather file format, DNI is derived using the solar altitude angle (slr_alt) from the NatHERS dataset:
+
+DNI = rsdsdir / sin(slr_alt)
+
+where:
+
+* rsdsdir  = direct horizontal irradiance
+* slr_alt  = solar altitude angle
+
+For very low solar elevation angles, where the projection factor becomes unstable, DNI is set to zero to avoid unrealistic values.
 
 ---
 
