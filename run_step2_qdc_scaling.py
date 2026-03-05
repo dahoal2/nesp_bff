@@ -81,9 +81,9 @@ def main():
         "2070": {"start": 2060, "end": 2080},
     }
 
-    vars_qdc = ["tas", "huss", "sfcWind", "psl", "rsdsdir", "rsdsdif"]
-    plot_vars = ["tas", "huss", "sfcWind", "psl", "rsds", "rsdsdir", "rsdsdif"]
-    vars_1hr = ["tas", "huss", "sfcWind", "psl", "uas", "vas", "clt", "rsds", "rsdsdir", "rsdsdif"]
+    vars_qdc = ["tas", "huss", "sfcWind", "psl", "rsds"]  # "rsdsdir", "rsdsdif"
+    plot_vars = vars_qdc #["tas", "huss", "sfcWind", "psl", "rsds", "rsdsdir", "rsdsdif"]
+    vars_1hr = ["tas", "huss", "sfcWind", "psl", "rsds", "rsdsdir", "rsdsdif"] # "uas", "vas", "clt" -> cloud and wind dir from NatHERS in step3 
 
     loc = args.loc
     if loc not in locations:
@@ -137,27 +137,35 @@ def main():
             ds_nathers_loc["lon"] = ds_hist["lon"]
     
             ds_fut_aligned = utils.align_future_to_historical(ds_hist, ds_fut)
+            
+            # Keep a copy of the raw future for fraction calculation (before any QDC changes)
+            ds_fut_raw = ds_fut_aligned  # this is raw model future, aligned in time
+            f_dir_time = utils.compute_fdir_time(ds_fut_raw)
 
-            def _has_feb29(da: xr.DataArray) -> bool:
-                return bool(((da.time.dt.month == 2) & (da.time.dt.day == 29)).any())
-        
             def _drop_feb29(da: xr.DataArray) -> xr.DataArray:
                 return da.where(~((da.time.dt.month == 2) & (da.time.dt.day == 29)), drop=True)
             
-            model_has_feb29 = _has_feb29(ds_fut_aligned) or _has_feb29(ds_hist)
+            def _has_feb29_time(time):
+                return bool(((time.dt.month == 2) & (time.dt.day == 29)).any())
+            
+            model_has_feb29 = _has_feb29_time(ds_fut_aligned["time"]) or _has_feb29_time(ds_hist["time"])
 
             if not model_has_feb29:
                 ds_nathers_loc = _drop_feb29(ds_nathers_loc)
     
             var_datasets = []
-    
+
             for v in vars_1hr:
                 print(f"Var: {v}")
-    
+            
+                # Skip rsdsdir/rsdsdif here; we'll build them after rsds is adjusted
+                if v in {"rsdsdir", "rsdsdif"}:
+                    continue
+            
                 if v in vars_qdc:
                     print(f"  QDC: {v}")
                     kind = "+" if v == "tas" else "*"
-    
+            
                     if v == "psl":
                         print("  Converting sea-level pressure to station pressure...")
                         ds_hist = ds_hist.assign(
@@ -166,61 +174,47 @@ def main():
                         ds_fut_aligned = ds_fut_aligned.assign(
                             psl=utils.convert_sea_level_pressure_to_station_pressure(ds_fut_aligned.psl, locations[loc]["Elev"])
                         )
-    
+            
                     da_obs = ds_nathers_loc[v]
                     da_hist = ds_hist[v]
                     da_fut = ds_fut_aligned[v]
 
-                    slr_alt=None
-    
                     if v == "rsds":
                         da_hist.attrs["units"] = da_obs.attrs.get("units", da_hist.attrs.get("units", ""))
                         da_fut.attrs["units"] = da_obs.attrs.get("units", da_fut.attrs.get("units", ""))
-
-                    #============== convert direct radiation ==================
-                    if v == "rsdsdir":
-                        # Outname 'rsdsdir' even though it's technically 'DNI' but has to match var
-                        # names in obs
-                        slr_alt = ds_nathers_loc["slr_alt"]          # degrees
-                        da_hist_al, slr_alt_al = xr.align(ds_hist[v], slr_alt, join="left")
-                        da_fut_al, slr_alt_al = xr.align(ds_fut_aligned[v], slr_alt, join="left")
-
-                        min_proj = np.sin(np.deg2rad(8))   # ~0.087
-                        proj = np.sin(np.deg2rad(slr_alt_al))
-                        
-                        da_hist = xr.where(
-                            proj > min_proj,
-                            da_hist_al / proj,
-                            0.0
-                        ).rename("rsdsdir")
-                        da_hist.attrs.update({"units": "W m-2", "description": "Direct normal irradiance"})
-
-                        da_fut = xr.where(
-                            proj > min_proj,
-                            da_fut_al / proj,
-                            0.0
-                        ).rename("rsdsdir")
-                        da_fut.attrs.update({"units": "W m-2", "description": "Direct normal irradiance"})
-
-                        # print(xr.merge([da_obs.rename("rsdsdir_obs").to_dataset(),
-                        #                 da_fut.rename("rsdsdir_fut").to_dataset(),
-                        #                 da_hist.rename("rsdsdir_hist").to_dataset()]).to_dataframe()[['rsdsdir_obs',
-                        #                                                                  'rsdsdir_fut',
-                        #                                                                  'rsdsdir_hist']].describe())
-
-                     #=======================================================
                     
-                    # da_adj, qdc_dict, adjusted_slices = utils.apply_qdc_sliding_window(
-                    #     da_obs=da_obs,
-                    #     da_model_historical=da_hist,
-                    #     da_model_future=da_fut,
-                    #     var=v,
-                    #     nq=args.nq,
-                    #     kind=kind,
-                    #     window=args.window,
-                    #     nslots=args.nslots,
-                    # )
+                 #=======================================================
 
+                    # slr_alt=None
+
+                    # #============== convert direct radiation ==================
+                    # if v == "rsdsdir":
+                    #     # Outname 'rsdsdir' even though it's technically 'DNI' but has to match var
+                    #     # names in obs
+                    #     slr_alt = ds_nathers_loc["slr_alt"]          # degrees
+                    #     da_hist_al, slr_alt_al = xr.align(ds_hist[v], slr_alt, join="left")
+                    #     da_fut_al, slr_alt_al = xr.align(ds_fut_aligned[v], slr_alt, join="left")
+
+                    #     min_proj = np.sin(np.deg2rad(8))   # ~0.087
+                    #     proj = np.sin(np.deg2rad(slr_alt_al))
+                        
+                    #     da_hist = xr.where(
+                    #         proj > min_proj,
+                    #         da_hist_al / proj,
+                    #         0.0
+                    #     ).rename("rsdsdir")
+                    #     da_hist.attrs.update({"units": "W m-2", "description": "Direct normal irradiance"})
+
+                    #     da_fut = xr.where(
+                    #         proj > min_proj,
+                    #         da_fut_al / proj,
+                    #         0.0
+                    #     ).rename("rsdsdir")
+                    #     da_fut.attrs.update({"units": "W m-2", "description": "Direct normal irradiance"})
+
+                 #=======================================================
+                    
+            
                     da_adjusted, qdc_models, adjusted_slices = utils.apply_hourly_qdc_sliding_window_solarfix(
                         da_obs=da_obs,
                         da_model_historical=da_hist,
@@ -229,35 +223,67 @@ def main():
                         nq=args.nq,
                         kind=kind,
                         window=args.window,
-                        solar_alt=slr_alt,  # degrees
+                        solar_alt=ds_nathers_loc["slr_alt"] if v == "rsds" else None,  # optional
                         min_alt=10.0,
-                        # clip_bounds={"rsdsdir": (0, 1400)},
-                        radiation_mask_source="future_model"
+                        radiation_mask_source="obs",  # you can keep/adjust
                     )
-
+            
+                    # Add adjusted variable
                     var_datasets.append(da_adjusted.rename(v).to_dataset())
+            
+                    # If we just adjusted rsds, reconstruct rsdsdir/rsdsdif
+                    if v == "rsds":
+                        da_hist.attrs["units"] = da_obs.attrs.get("units", da_hist.attrs.get("units", ""))
+                        da_fut.attrs["units"] = da_obs.attrs.get("units", da_fut.attrs.get("units", ""))
                         
-                    if args.do_plots and v in plot_vars:
-                        import matplotlib.pyplot as plt
-                        for hour in [0, 12]:
-                            fig_file = os.path.join(
-                                args.plot_dir,
-                                os.path.basename(out_file).replace(".nc", f"_AdjFact_{v}_{hour}UTC.pdf"),
-                            )
-                            if not os.path.exists(fig_file):
-                                utils.plot_qdc_hourly_diagnostics(
-                                    da_obs, da_hist, da_fut,
-                                    qdc_dict, adjusted_slices,
-                                    v, f"{args.rcm}-{gcm}",
-                                    loc, hour,
-                                    args.scenario, fut_period
+                        # Align fraction to adjusted time (should already match, but be robust)
+                        f_dir = f_dir_time.sel(time=da_adjusted.time)
+            
+                        rsdsdir_adj = (da_adjusted * f_dir).rename("rsdsdir")
+                        rsdsdif_adj = (da_adjusted - rsdsdir_adj).rename("rsdsdif")
+            
+                        # keep metadata tidy
+                        rsdsdir_adj.attrs.update({"units": da_adjusted.attrs.get("units", "W m-2"),
+                                                  "description": "Direct component derived from rsds using future-model direct fraction"})
+                        rsdsdif_adj.attrs.update({"units": da_adjusted.attrs.get("units", "W m-2"),
+                                                  "description": "Diffuse component derived as rsds - rsdsdir"})
+            
+                        # Safety: enforce non-negative and rsdsdir<=rsds
+                        rsdsdir_adj = rsdsdir_adj.clip(min=0)
+                        rsdsdif_adj = rsdsdif_adj.clip(min=0)
+
+                        # QC: should be ~0 aside from float error
+                        closure = np.abs(da_adjusted - (rsdsdir_adj + rsdsdif_adj)).max()
+                        print("Max rsds closure error:", float(closure))
+            
+                        var_datasets.append(rsdsdir_adj.to_dataset())
+                        var_datasets.append(rsdsdif_adj.to_dataset())
+
+                        if args.do_plots and v in plot_vars:
+                            import matplotlib.pyplot as plt
+                            for hour in [0, 12]:
+                                fig_file = os.path.join(
+                                    args.plot_dir,
+                                    os.path.basename(out_file).replace(".nc", f"_AdjFact_{v}_{hour}UTC.pdf"),
                                 )
-                                plt.tight_layout()
-                                plt.savefig(fig_file, bbox_inches="tight")
-                                plt.close()
+                                if not os.path.exists(fig_file):
+                                    utils.plot_qdc_hourly_diagnostics(
+                                        da_obs, da_hist, da_fut,
+                                        qdc_dict, adjusted_slices,
+                                        v, f"{args.rcm}-{gcm}",
+                                        loc, hour,
+                                        args.scenario, fut_period
+                                    )
+                                    plt.tight_layout()
+                                    plt.savefig(fig_file, bbox_inches="tight")
+                                    plt.close()
+
+            
                 else:
-                    da_fut = ds_fut_aligned[v]
+                    # Fill with unadjusted variables from NatHERS
+                    da_fut = ds_nathers[v] #ds_fut_aligned[v]
                     var_datasets.append(da_fut.rename(v).to_dataset())
+    
     
             ds_out = xr.merge(var_datasets)
             print(ds_out)
