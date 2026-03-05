@@ -34,7 +34,7 @@ The prototype weather files are derived from simulations produced with the BARPA
 
 ## Regional climate model
 
-Model: BARPA-R
+Model: BARPA-R (Su et al. 2022)
 Institution: Bureau of Meteorology
 Domain: AUS-15 (~15 km resolution)
 Temporal resolution: Hourly
