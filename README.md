@@ -7,8 +7,25 @@ The workflow extracts climate model variables at specific locations and applies 
 
 The pipeline is designed to run on NCI Gadi and uses PBS job scripts to process multiple models, locations, and time periods efficiently.
 
+## Table of contents
 
-⚠️ **Environment compatibility warning**
+- [Important notes on environment and configuration](#️-important-notes-on-environment-and-configuration)
+  - [Conda environment compatibility](#conda-environment-compatibility)
+  - [Hard-coded file paths](#hard-coded-file-paths)
+- [Repository structure with relevant files](#repository-structure-with-relevant-files)
+- [Workflow overview](#workflow-overview)
+- [Step 1 – Extraction of climate variables](#step-1--extraction-of-climate-variables)
+- [Step 2 – Bias correction using Quantile Delta Change (QDC)](#step-2--bias-correction-using-quantile-delta-change-qdc)
+- [Step 3 – Derived variables, unit conversion and dataset completion](#step-3--derived-variables-unit-conversion-and-dataset-completion)
+- [Running the pipeline on NCI Gadi](#running-the-pipeline-on-nci-gadi)
+- [Requirements](#requirements)
+- [Outputs](#outputs)
+- [Original/outdated documentation](#originaloutdated-documentation)
+- [Authors](#authors)
+
+### ⚠️ **Important notes on environment and configuration**
+
+#### Conda environment compatibility
 
 This pipeline currently **does not run with the newest `analysis3` conda environments on NCI Gadi**.
 
@@ -29,9 +46,21 @@ The appropriate conda environent is automatically loaded when job scripts are su
 Work is underway to update the scripts to support the newer **`xsdba`** package. Once this migration is complete, the repository will be updated accordingly.
 
 
+#### Hard-coded file paths
+
+Some scripts currently contain **hard-coded file paths**, for example when importing shared utilities:
+
+```python
+sys.path.append("/home/565/dh4185/mn51-dh4185/repos_collab/nesp_bff/")
+import utils
+```
+These paths may need to be updated to match your local environment or repository location.
+Improving portability and removing hard-coded paths is part of ongoing development.
+
+
 ---
 
-# Repository structure with relevant files
+## Repository structure with relevant files
 
 ```
 nesp_bff/
@@ -58,7 +87,7 @@ nesp_bff/
 
 ---
 
-# Workflow overview
+## Workflow overview
 
 The processing pipeline converts **regional climate model output** into **location-specific hourly time series of NatHERS weather variables**.
 
@@ -82,7 +111,7 @@ NatHERS-compatible hourly climate files for further processing to TMY and XMY fi
 
 ---
 
-# Step 1 – Extraction of climate variables
+## Step 1 – Extraction of climate variables
 
 Scripts:
 
@@ -132,7 +161,7 @@ bash pbs_scripts/submit_all_gcms_step1.sh
 
 ---
 
-# Step 2 – Bias correction using Quantile Delta Change (QDC)
+## Step 2 – Bias correction using Quantile Delta Change (QDC)
 
 Scripts:
 
@@ -190,7 +219,7 @@ bash pbs_scripts/submit_step2_qdc_jobs.sh
 
 ---
 
-# Step 3 – Derived variables, unit conversion and dataset completion
+## Step 3 – Derived variables, unit conversion and dataset completion
 
 Scripts:
 
@@ -230,7 +259,7 @@ bash pbs_scripts/submit_step3_by_location.sh
 
 ---
 
-# Running the pipeline on NCI Gadi
+## Running the pipeline on NCI Gadi
 
 Each processing step is executed using bash scripts located in:
 ```
@@ -248,7 +277,7 @@ to efficiently process large datasets.
 
 ---
 
-# Requirements
+## Requirements
 
 Typical Python dependencies include:
 
@@ -274,7 +303,7 @@ The appropriate conda environent is automatically loaded when job scripts are su
 
 ---
 
-# Outputs
+## Outputs
 
 The final output consists of **bias-corrected hourly NetCDF files** for each:
 
@@ -289,7 +318,7 @@ These datasets can be used for further processing through TMY and XMY pipelines.
 
 ---
 
-# Original/outdated documentation
+## Original/outdated documentation
 
 The original project README.md documentation is archived here:
 
@@ -299,8 +328,9 @@ docs/README_old.md
 
 ---
 
-# Authors
+## Authors
 
 Developed as part of the **NESP Building Futures Framework (BFF)** project to produce climate datasets for building energy modelling.
 
 ---
+
