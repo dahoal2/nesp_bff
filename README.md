@@ -20,6 +20,7 @@ The pipeline is designed to run on NCI Gadi and uses PBS job scripts to process 
 - [Running the pipeline on NCI Gadi](#running-the-pipeline-on-nci-gadi)
 - [Requirements](#requirements)
 - [Outputs](#outputs)
+- [Model temperature ranking (coolest, median, hottest)](#model-temperature-ranking-coolest-median-hottest)
 - [Original/outdated documentation](#originaloutdated-documentation)
 - [Authors](#authors)
 
@@ -318,7 +319,17 @@ These datasets can be used for further processing through TMY and XMY pipelines.
 
 ---
 
-## Original/outdated documentation
+### Model temperature ranking (coolest, median, hottest)
+
+To help users navigate the large number of generated weather files, a [summary table (.csv)](model_temperature_summary_step3output.csv) is created that identifies the **coolest, median, and hottest global climate model (GCM)** for each combination of location, emission scenario, and future time period. The ranking is based on the **annual mean air temperature** calculated from the bias-corrected hourly datasets produced in **Step 3** of the processing pipeline. The resulting table includes the model ranking and the temperature deviation relative to the historical NatHERS reference dataset. While the ranking is currently derived from the Step 3 outputs, it should ideally be based on the **final TMY weather files**, as these represent the datasets that will ultimately be used in downstream building energy modelling workflows.
+
+```
+model_temperature_summary_step3output.csv
+```
+
+---
+
+### Original/outdated documentation
 
 The original project README.md documentation is archived here:
 
@@ -333,4 +344,5 @@ docs/README_old.md
 Developed as part of the **NESP Building Futures Framework (BFF)** project to produce climate datasets for building energy modelling.
 
 ---
+
 
