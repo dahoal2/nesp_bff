@@ -47,7 +47,7 @@ BARPA-R dynamically downscales CMIP6 global climate simulations to produce high-
 
 The following CMIP6 models were used:
 
-| Global Climate Model | Run         |
+| Global Climate Model | Ensemble mem|
 |----------------------|-------------|
 | ACCESS-CM2           | r4i1p1f1    |
 | ACCESS-ESM1-5        | r6i1p1f1    |
@@ -85,6 +85,7 @@ The following hourly variables are extracted from BARPA-R simulations:
 | clt      | Total cloud cover            |%     |
 | rsdsdir  | Direct shortwave radiation   |W m⁻² |
 | rsdsdif  | Diffuse shortwave radiation  |W m⁻² |
+
 
 ### Selection of Representative BARPA-R Grid Cells
 
@@ -229,15 +230,18 @@ The following methodology is currently under development and subject to refineme
 
 ### Extreme Meteorological Year (XMY)
 
-Extreme Meteorological Years (XMY) are constructed to represent climate conditions associated with severe heatwave events relevant for building performance.
+Extreme Meteorological Years (XMY) are constructed to represent climate conditions associated with severe heatwave events that are relevant for assessing building performance under extreme heat. Heatwaves are identified following the methodology of Ouzeau et al. (2016). A heatwave event begins when temperature exceeds the 97.5th percentile (Sdeb) of the local temperature distribution and ends when temperature drops below this threshold. Within the event:
 
-Three XMY datasets are produced, each based on a different heatwave characteristic:
+* temperatures exceeding the 99.5th percentile (Spic) represent peak heatwave conditions
+* brief interruptions where temperature falls below Sdeb but remains above the 95th percentile (Sint) are allowed, enabling closely spaced heat episodes to be merged into a single heatwave event
 
-- the longest heatwave
-- the most severe heatwave
-- the most intense heatwave
+This definition allows the identification of multi-day heat events while avoiding fragmentation of heatwaves due to short-lived temperature drops. From the detected heatwave events, three different XMY weather files are produced, each representing a distinct characteristic of extreme heat:
 
-These years are selected from the climate simulations based on heatwave metrics calculated from temperature data, allowing testing of building performance under a range of extreme heat conditions.
+* Longest heatwave (duration) – the event with the greatest number of consecutive heatwave days
+* Most intense heatwave (intensity) – the event with the highest peak temperature reached during a heatwave
+* Most severe heatwave (severity) – the event with the largest accumulated temperature exceedance above the heatwave threshold during the event
+
+For each metric, the year containing the most extreme event is selected from the climate simulation and used to construct the corresponding XMY weather file. This provides a set of weather files representing different forms of extreme heat stress relevant to building resilience analysis. These XMY datasets allow building simulations to be tested against a range of plausible extreme heat conditions projected by the climate models.
 
 ---
 
@@ -245,15 +249,27 @@ These years are selected from the climate simulations based on heatwave metrics 
 
 Each file represents:
 
-* a single location (e.g. Melbourne)
-* a single climate model (e.g. ACCESS-ESM1.5)
+* a single NatHERS location identifier (e.g. Cairns_CZ0106_CN)
+* grid resolution (AUS-15)
+* a single climate model (e.g. MPI-ESM1-2-HR)
 * a single emission scenario (e.g.ssp370)
+* ensemble member identifier (r1i1p1f1)
+* institution, region climate model and version (BOM_BARPA-R_v1-r1)
+* temporal resolution (1hr)
+* Bias adjustment method with reference data (QDC-NatHERS)
 * a future 20-year simulation period (e.g. 2041-2060)
-* a weather file type identifier with method (e.g. Sandia RMY)
 
-Example filename:
+For TMY files (1x):
 
-Melbourne_AUS-15_ACCESS-ESM1-5_ssp370_r6i1p1f1_BOM_BARPA-R_v1-r1_1hr_QDC-NatHERS_sandia_RMY_2041-2060
+* a weather file type identifier with method (e.g. Marchard or Sandia RMY)
+
+Example filename: Cairns_CZ0106_CN_AUS-15_MPI-ESM1-2-HR_ssp370_r1i1p1f1_BOM_BARPA-R_v1-r1_1hr_QDC-NatHERS_machard_RMY_2021-2040.txt
+
+For XMY file (1-3x):
+
+* Heatwave identifier (HWsevere, HWlongest, HWintense) instead of TMY method
+
+Example filename: Cairns_CZ0106_CN_AUS-15_MPI-ESM1-2-HR_ssp370_r1i1p1f1_BOM_BARPA-R_v1-r1_1hr_QDC-NatHERS_HWsevere_XMY_2021-2040.txt
 
 ---
 
@@ -262,7 +278,9 @@ Melbourne_AUS-15_ACCESS-ESM1-5_ssp370_r6i1p1f1_BOM_BARPA-R_v1-r1_1hr_QDC-NatHERS
 These prototype datasets have several limitations:
 
 * Some variables are not bias corrected (cloud cover, wind direction)
-* The TMY/XMY generation methodology is experimental
+* Errors from the original NatHERS data can be inherited in the weather files
+* The QDC approach and TMY/XMY generation methodology is experimental
+* Physical consistencies between the variables is tried to be maintained as much as possible
 * Results depend on climate model uncertainty
 * The files are not validated for building regulatory use
 
@@ -290,40 +308,11 @@ Climate projections used in this dataset were produced using the BARPA-R regiona
 
 # References
 
-Su, C.-H., Stassen, C., Howard, E., Ye, H., Bell, S. S., Pepler, A., Dowdy, A. J., Tucker, S. O., Franklin, C. (2022), BARPA: New development of ACCESS-based regional climate modelling for Australian Climate Service, Bureau Research Report 069, accessed online http://www.bom.gov.au/research/publications/researchreports/BRR-069.pdf 
-
 Irving, D. and Macadam, I. (2024) Application-Ready Climate Projections from CMIP6 using the Quantile Delta Change method. CSIRO Climate Innovation Hub Technical Note 5. https://doi.org/10.25919/03by-9y62 
 
+Machard, A., Salvati, A., P. Tootkaboni, M. et al. Typical and extreme weather datasets for studying the resilience of buildings to climate change and heatwaves. Sci Data 11, 531 (2024). https://doi.org/10.1038/s41597-024-03319-8
 
+Ouzeau, G., Soubeyroux, J.-M., Schneider, M., Vautard, R., Planton, S. (2016): Heat waves analysis over France in present and future climate: Application of a new method on the EURO-CORDEX ensemble, Climate Services, Volume 4, Pages 1-12, ISSN 2405-8807, https://doi.org/10.1016/j.cliser.2016.09.002.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Su, C.-H., Stassen, C., Howard, E., Ye, H., Bell, S. S., Pepler, A., Dowdy, A. J., Tucker, S. O., Franklin, C. (2022), BARPA: New development of ACCESS-based regional climate modelling for Australian Climate Service, Bureau Research Report 069, accessed online http://www.bom.gov.au/research/publications/researchreports/BRR-069.pdf 
 
